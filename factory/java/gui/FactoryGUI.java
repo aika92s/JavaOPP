@@ -135,16 +135,16 @@ public class FactoryGUI extends JFrame {
         panel.add(autoProducedLabel);
         panel.add(taskQueueLabel);
 
-        panel.add(new JLabel("Body supplier speed:"));
+        panel.add(new JLabel("Body supplier latency:"));
         panel.add(bodySupplierSlider);
 
-        panel.add(new JLabel("Motor supplier speed:"));
+        panel.add(new JLabel("Motor supplier latency:"));
         panel.add(motorSupplierSlider);
 
-        panel.add(new JLabel("Accessory supplier speed:"));
+        panel.add(new JLabel("Accessory supplier latency:"));
         panel.add(accessorySupplierSlider);
 
-        panel.add(new JLabel("Dealer speed:"));
+        panel.add(new JLabel("Dealer latency:"));
         panel.add(dealerSlider);
 
         add(panel);
