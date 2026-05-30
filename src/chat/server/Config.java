@@ -10,6 +10,7 @@ public class Config {
     private final boolean logging;
     private final String host;
     private final int backlog;
+    private final int historyLimit;
 
     public Config() throws IOException {
         FileReader reader = new FileReader("server.property");
@@ -23,6 +24,7 @@ public class Config {
         port = Integer.parseInt(properties.getProperty("port"));
         host = properties.getProperty("host");
         backlog = Integer.parseInt(properties.getProperty("backlog"));
+        historyLimit = Integer.parseInt(properties.getProperty("historyLimit"));
     }
 
     public int getPort() {
@@ -43,5 +45,9 @@ public class Config {
 
     public int getBacklog() {
         return backlog;
+    }
+
+    public int getHistoryLimit() {
+        return historyLimit;
     }
 }

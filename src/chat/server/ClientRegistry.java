@@ -96,4 +96,8 @@ public class ClientRegistry {
             clientHandler.addToHistory(fromUser, message);
         }
     }
+
+    public ClientHandler getHandler(String userName) {
+        return allUserList.get(userName);
+    }
 }

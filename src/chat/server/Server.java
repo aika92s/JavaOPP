@@ -23,6 +23,7 @@ public class Server {
     private final ExecutorService service;
     private ClientRegistry registry;
     private GroupManager groupManager;
+    Logger logger;
 
     public Server() throws IOException {
         service = Executors.newCachedThreadPool();
@@ -30,6 +31,8 @@ public class Server {
         groupManager = new GroupManager();
 
         config = new Config();
+
+        logger = new Logger(config.isLogging());
         serverSocket = new ServerSocket(config.getPort(), config.getBacklog(), InetAddress.getByName(config.getHost()));
     }
 
@@ -37,12 +40,15 @@ public class Server {
         try {
             while (true) {
                 Socket socket = serverSocket.accept();
-                service.submit(new ClientHandler(socket, registry, groupManager, config.getRateLimit()));
+                logger.logClientConnected(socket.getRemoteSocketAddress().toString());
+                service.submit(new ClientHandler(socket, registry, groupManager, config.getRateLimit(), logger, config.getHistoryLimit()));
             }
         } catch (IOException e) {
             System.err.println("Server stopped");
         } finally {
+
             service.shutdown();
+            logger.close();
             try {
                 if (service.awaitTermination(100, TimeUnit.SECONDS)) {
                     service.shutdownNow();

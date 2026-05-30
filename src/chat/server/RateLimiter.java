@@ -2,29 +2,28 @@ package server;
 
 public class RateLimiter {
     private final int maxToken;
-    private int tokenBucket;
+    private double tokenBucket;
 
+    private final double refillRate;
     private long lastUpdated;
 
     public RateLimiter(int limit) {
         maxToken = limit;
         tokenBucket = limit;
         lastUpdated = System.currentTimeMillis();
+
+        refillRate = limit / 1000.0;
     }
 
-    public void updateTokens() {
+    public boolean tryConsume() {
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastUpdated < 1000) return;
+        double elapsedTime = currentTime - lastUpdated;
 
-        tokenBucket = maxToken;
+        tokenBucket = Math.min(maxToken, tokenBucket + elapsedTime * refillRate);
         lastUpdated = currentTime;
-    }
 
-    public boolean isEnoughTokens() {
-        return tokenBucket > 0;
-    }
-
-    public void takeToken() {
-        tokenBucket--;
+        if (tokenBucket < 1.0) return false;
+        tokenBucket -= 1.0;
+        return true;
     }
 }

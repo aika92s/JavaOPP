@@ -24,7 +24,15 @@ public class ChatFrame extends JFrame implements MessageCallback {
 
         setTitle("Chat — " + username);
         setSize(800, 600);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                client.disconnect(sessionId);
+                dispose();
+                System.exit(0);
+            }
+        });
         setLocationRelativeTo(null);
         initUI();
     }

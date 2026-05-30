@@ -1,5 +1,6 @@
 port=8080
 logging=true
-rateLimit=5
+rateLimit=2
 host=localhost
 backlog=50
+historyLimit=20

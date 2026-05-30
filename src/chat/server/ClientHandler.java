@@ -7,6 +7,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,9 +26,11 @@ public class ClientHandler implements Runnable {
     private ClientRegistry registry;
     private ConcurrentHashMap<String, ChatHistory> chatsHistory;
     private final GroupManager groupManager;
+    private final Logger logger;
+    private final int historyLimit;
 
     public ClientHandler(Socket socket, ClientRegistry registry,
-                          GroupManager groupManager, int limit) throws IOException {
+                          GroupManager groupManager, int limit, Logger logger, int historyLimit) throws IOException {
 
         int milliseconds = 100000;
 
@@ -40,8 +43,10 @@ public class ClientHandler implements Runnable {
         this.registry = registry;
         this.chatsHistory = new ConcurrentHashMap<>();
         this.groupManager = groupManager;
+        this.logger = logger;
 
         limiter = new RateLimiter(limit);
+        this.historyLimit = historyLimit;
     }
 
     @Override
@@ -105,7 +110,10 @@ public class ClientHandler implements Runnable {
 
         if (registry.isUserContains(userName)) {
             serverResponse.setSuccess(false);
-            serverResponse.setErrorMessage("A user with that username already exists.\n");
+            String reason = "A user with that username already exists.\n";
+
+            serverResponse.setErrorMessage(reason);
+            logger.logLoginFailed(userName, reason);
 
             return serverResponse;
         }
@@ -120,6 +128,8 @@ public class ClientHandler implements Runnable {
         this.userName = userName;
         serverResponse.setSuccess(true);
         registry.addUser(userName, this);
+
+        logger.logLogin(userName);
 
         return serverResponse;
     }
@@ -146,6 +156,7 @@ public class ClientHandler implements Runnable {
         registry.removeUser(userName);
         groupManager.removeUserFromAllGroups(userName);
 
+        logger.logLogout(userName);
         return serverResponse;
     }
 
@@ -153,15 +164,13 @@ public class ClientHandler implements Runnable {
 
         ServerResponse serverResponse = new ServerResponse();
 
-        limiter.updateTokens();
-        if (!limiter.isEnoughTokens()) {
+        if (!limiter.tryConsume()) {
             serverResponse.setSuccess(false);
             serverResponse.setErrorMessage("Too many requests.");
 
+            logger.logRateLimitExceeded(userName);
             return serverResponse;
         }
-
-        limiter.takeToken();
 
         if (!clientRequest.getSessionId().equals(this.sessionId)) {
             serverResponse.setSuccess(false);
@@ -218,6 +227,7 @@ public class ClientHandler implements Runnable {
             registry.broadcastMessage(message, group, userName);
             serverResponse.setSuccess(true);
 
+            logger.logGroupMessage(userName, group.getGroupId());
             return serverResponse;
         }
 
@@ -235,6 +245,8 @@ public class ClientHandler implements Runnable {
         updateHistory(toUser, message);
 
         registry.sendToUser(message, toUser, userName);
+
+        logger.logPrivateMessage(userName, toUser);
 
         return serverResponse;
     }
@@ -304,8 +316,7 @@ public class ClientHandler implements Runnable {
         serverResponse.setGroupId(groupId);
         serverResponse.setGroupName(groupName);
 
-        System.out.println("Group created: " + groupName + " (ID: " + groupId + ") by " + userName);
-
+        logger.logGroupCreated(groupName, groupId, userName);
 
         return serverResponse;
     }
@@ -365,6 +376,9 @@ public class ClientHandler implements Runnable {
         groupManager.getGroup(groupId).addUser(targetUser);
 
         registry.broadcast(group, targetUser);
+        logger.logUserAddedToGroup(targetUser, groupId, userName);
+
+        sendHistory(targetUser, group);
 
         return serverResponse;
     }
@@ -384,6 +398,31 @@ public class ClientHandler implements Runnable {
         out.flush();
     }
 
+    private void sendHistory(String targetUser, Group group) {
+        ClientHandler targetHandler = registry.getHandler(targetUser);
+
+        if (targetHandler == null) return;
+
+        List<Message> history = group.getHistory().getHistory();
+
+        int fromIndex = Math.max(0, history.size() - historyLimit);
+        for (Message message : history.subList(fromIndex, history.size())) {
+            ServerResponse response = new ServerResponse();
+
+            response.setSuccess(true);
+            response.setEventType("message");
+            response.setMessage(message);
+
+            response.setUsername(message.getFromUser().getUserName());
+
+            try {
+                targetHandler.sendResponse(response);
+            } catch (IOException e) {
+                System.err.println("Failed to send history to " + targetUser + ": " + e.getMessage());
+            }
+        }
+    }
+
     private void closeResources() {
         try {
             if (userName != null) {
@@ -394,6 +433,7 @@ public class ClientHandler implements Runnable {
             if (out != null) out.close();
 
             if (socket != null && !socket.isClosed()) {
+                logger.logClientDisconnected(userName, socket.getRemoteSocketAddress().toString());
                 socket.close();
             }
 
