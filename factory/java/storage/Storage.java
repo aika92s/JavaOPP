@@ -35,7 +35,7 @@ public class Storage<T> {
         return capacity;
     }
 
-    public int getSize() {
+    public synchronized int getSize() {
         return queue.size();
     }
 
