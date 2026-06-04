@@ -1,0 +1,12 @@
+StorageBodySize=100
+StorageMotorSize=100
+StorageAccessorySize=100
+StorageAutoSize=100
+AccessorySuppliers=5
+Workers=2
+Dealers=20
+BodySupplierLatency=1000
+MotorSupplierLatency=1000
+AccessorySupplierLatency=1000
+DealerLatency=1000
+LogSale=true
